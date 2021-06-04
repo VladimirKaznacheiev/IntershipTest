@@ -140,38 +140,40 @@ public class MainActivity extends AppCompatActivity {
 
                 try {
                     doc = Jsoup.connect("https://api.github.com/users").ignoreContentType(true).get();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                users = doc.text().replace("[", "").replace("]","").replace("{","").replace("}","");
-                String[] words = users.split(",");
-                for (String word : words) {
-                    word = word.replaceAll(" ","");
-                    if(word.contains("\"id\"")){
-                        word = word.replaceAll("\"id\":", "");
+                    users = doc.text().replace("[", "").replace("]","").replace("{","").replace("}","");
+                    String[] words = users.split(",");
+                    for (String word : words) {
+                        word = word.replaceAll(" ","");
+                        if(word.contains("\"id\"")){
+                            word = word.replaceAll("\"id\":", "");
 
-                        user_id_temp.add(Integer.parseInt(word));
-                    }
+                            user_id_temp.add(Integer.parseInt(word));
+                        }
 
-                    word = word.replaceAll("\"","");
+                        word = word.replaceAll("\"","");
 
 
-                    if(word.contains("login")){
-                        word = word.replaceAll("login:", "");
-                        logins_temp.add(word);
+                        if(word.contains("login")){
+                            word = word.replaceAll("login:", "");
+                            logins_temp.add(word);
 
 
                             repos_words.add(null);
                             changes_count.add(0);
 
-                    } else if(word.contains("avatar_url")){
-                        word = word.replaceAll("avatar_url:", "");
-                        avatar_urls_temp.add(word);
-                    }else if(word.contains("repos_url")){
-                        word = word.replaceAll("repos_url:", "");
-                        repos_urls_temp.add(word);
+                        } else if(word.contains("avatar_url")){
+                            word = word.replaceAll("avatar_url:", "");
+                            avatar_urls_temp.add(word);
+                        }else if(word.contains("repos_url")){
+                            word = word.replaceAll("repos_url:", "");
+                            repos_urls_temp.add(word);
+                        }
                     }
+                } catch (IOException e) {
+                    Toast.makeText(MainActivity.this, "Connection Error", Toast.LENGTH_SHORT).show();
+                    e.printStackTrace();
                 }
+
                 logins.clear();
                 avatar_urls.clear();
                 repos_urls.clear();
@@ -270,26 +272,27 @@ public void clearData(){
 
                                 try {
                                     doc1 = Jsoup.connect(reposUrl).ignoreContentType(true).get();
+                                    repositoriesDoc = doc1.text().replace("[", "").replace("]", "").replace("{", "").replace("}", "");
+                                    String[] reposWords = repositoriesDoc.split(",");
+                                    for (String word : reposWords) {
+                                        if (word.contains("\"full_name\"")) {
+                                            word = word.replaceAll("\"", "");
+                                            word = word.replaceAll(" ", "");
+                                            word = word.replaceAll("full_name:", "");
 
+                                            word = word.split("/", 2)[1];
+
+
+                                            repos_words.set(position, repos_words.get(position) + word + ".SPLIT.");
+                                        }
+                                    }
                                 } catch (IOException e) {
+                                    Toast.makeText(MainActivity.this, "Connection Error", Toast.LENGTH_SHORT).show();
 
                                     e.printStackTrace();
                                 }
-                                repositoriesDoc = doc1.text().replace("[", "").replace("]", "").replace("{", "").replace("}", "");
-
-                                String[] reposWords = repositoriesDoc.split(",");
-                                for (String word : reposWords) {
-                                    if (word.contains("\"full_name\"")) {
-                                        word = word.replaceAll("\"", "");
-                                        word = word.replaceAll(" ", "");
-                                        word = word.replaceAll("full_name:", "");
-
-                                        word = word.split("/", 2)[1];
 
 
-                                        repos_words.set(position, repos_words.get(position) + word + ".SPLIT.");
-                                    }
-                                }
 
 
 
