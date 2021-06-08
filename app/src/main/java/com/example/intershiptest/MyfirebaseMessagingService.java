@@ -30,21 +30,10 @@ public class MyfirebaseMessagingService extends FirebaseMessagingService {
         if(remoteMessage.getNotification() != null){
             String messageTitle = remoteMessage.getNotification().getTitle();
             String messageBody = remoteMessage.getNotification().getBody();
-
-            UserModel userModel = realm.where(UserModel.class).equalTo("userId",Integer.parseInt(messageTitle)).findFirst();
-
-            realm.executeTransaction(new Realm.Transaction() {
-                @Override
-                public void execute(Realm realm) {
-                    userModel.setChangesCount(Integer.parseInt(messageBody));
-                }
-            });
-
-
-            Intent intent = new Intent(INTENT_FILTER);
-            sendBroadcast(intent);
-
-            Log.d("FCM", messageTitle + "///" + messageBody);
+            UserModel userModel = realm.where(UserModel.class).equalTo("id",Integer.parseInt(messageTitle)).findFirst();
+            realm.beginTransaction();
+            userModel.setChangesCount(Integer.parseInt(messageBody));
+            realm.commitTransaction();
         }
     }
 }
