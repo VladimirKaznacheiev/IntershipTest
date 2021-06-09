@@ -13,10 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
-
-
-
-
+import java.util.List;
 
 
 class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapter.ViewHolder> {
@@ -24,17 +21,14 @@ class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapter.ViewH
     private static final String TAG = "RecyclerViewAdapter";
 
     //vars
-    private ArrayList<String> logins = new ArrayList<>();
-    private ArrayList<String> avatar_urls = new ArrayList<>();
-    private ArrayList<Integer> changes_count = new ArrayList<>();
+    List<UserModel> userModelList;
     Context context;
 
 
-    public RecyclerViewAdapter(Context context, ArrayList<String> logins, ArrayList<String> avatar_urls,ArrayList<Integer> changes_count) {
-        this.logins = logins;
-        this.avatar_urls = avatar_urls;
+    public RecyclerViewAdapter(Context context, List<UserModel> userModelList) {
+
         this.context = context;
-        this.changes_count = changes_count;
+        this.userModelList = userModelList;
     }
 
     @Override
@@ -46,22 +40,22 @@ class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapter.ViewH
     @Override
     public void onBindViewHolder(ViewHolder holder, final int position) {
 
-        holder.login.setText(logins.get(position));
-        Glide.with(context).load(avatar_urls.get(position)).into(holder.avatar);
+        holder.login.setText(userModelList.get(position).getLogin());
+        Glide.with(context).load(userModelList.get(position).getAvatar_url()).into(holder.avatar);
         holder.login.setTextColor(ContextCompat.getColor(context,R.color.black));
 
-        if(changes_count.get(position) == 0){
+        if(userModelList.get(position).getChangesCount() == 0){
             holder.circle.setVisibility(View.GONE);
             holder.changesCounter.setVisibility(View.GONE);
         }else{
-            holder.changesCounter.setText(changes_count.get(position)+"");
+            holder.changesCounter.setText(userModelList.get(position).getChangesCount()+"");
         }
 
     }
 
     @Override
     public int getItemCount() {
-        return logins.size();
+        return userModelList.size();
     }
 
 

@@ -32,16 +32,15 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
-
     RecyclerView usersView;
     ProgressBar progressBar;
     RecyclerView recyclerView;
     DialogFragment reposDialog;
     Realm realm;
     RealmChangeListener realmListener;
-    ArrayList<String> logins = new ArrayList<>();
-    ArrayList<String> avatar_urls = new ArrayList<>();
-    ArrayList<Integer> changes_count = new ArrayList<>();
+    Retrofit retrofit;
+    APIService apiService;
+    List<UserModel> userModels;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,13 +55,13 @@ public class MainActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         reposDialog = new ReposDialogFragment();
         getSupportActionBar().hide();
-        List<UserModel> userModels = realm.where(UserModel.class).findAll();
+        retrofit = new Retrofit.Builder()
+                .baseUrl("https://api.github.com/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
 
-        for (UserModel user: userModels) {
-            logins.add(user.getLogin());
-            avatar_urls.add(user.getAvatar_url());
-            changes_count.add(user.getChangesCount());
-        }
+        apiService = retrofit.create(APIService.class);
+        userModels = realm.where(UserModel.class).findAll();
         if(realm.where(UserModel.class).findAll().size() != 0){
             progressBar.setVisibility(View.GONE);
         }
@@ -70,16 +69,7 @@ public class MainActivity extends AppCompatActivity {
         realmListener = new RealmChangeListener<Realm>() {
             @Override
             public void onChange(Realm realm) {
-                List<UserModel> userModels = realm.where(UserModel.class).findAll();
-                logins.clear();
-                avatar_urls.clear();
-                changes_count.clear();
-                for (int i = 0; i<userModels.size();i++) {
-                    UserModel user = userModels.get(i);
-                        logins.add(i, user.getLogin());
-                        avatar_urls.add(i, user.getAvatar_url());
-                        changes_count.add(i, user.getChangesCount());
-                }
+                userModels = realm.where(UserModel.class).findAll();
                 initRecyclerView();
             }
         };
@@ -87,13 +77,19 @@ public class MainActivity extends AppCompatActivity {
         getUsers();
         onUserClick();
     }
+    public void onUserClick(){
+        usersView.addOnItemTouchListener(
+                new RecyclerItemClickListener(this, usersView, new RecyclerItemClickListener.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(View view, int position) {
+                        getRepos(position);
+                    }
+                    @Override
+                    public void onLongItemClick(View view, int position) { }
+                })
+        );
+    }
     public void getUsers(){
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("https://api.github.com/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-
-        APIService apiService = retrofit.create(APIService.class);
         Call<List<UserModel>> call = apiService.getUsers();
         call.enqueue(new Callback<List<UserModel>>() {
             @Override
@@ -101,10 +97,10 @@ public class MainActivity extends AppCompatActivity {
                 realm.beginTransaction();
                 for (int i = 0;i<response.body().size();i++) {
                     UserModel user = response.body().get(i);
-                    int changesCountTemp = realm.where(UserModel.class).findAll().get(i).getChangesCount();
-                    RealmList<ReposModel> reposListTemp = realm.where(UserModel.class).findAll().get(i).getRepositories();
-                    user.setChangesCount(changesCountTemp);
-                    user.setRepositories(reposListTemp);
+                    if(realm.where(UserModel.class).findAll().size() == response.body().size()) {
+                        user.setChangesCount(realm.where(UserModel.class).findAll().get(i).getChangesCount());
+                        user.setRepositories(realm.where(UserModel.class).findAll().get(i).getRepositories());
+                    }
                     realm.copyToRealmOrUpdate(user);
                 }
                 realm.commitTransaction();
@@ -114,55 +110,40 @@ public class MainActivity extends AppCompatActivity {
             public void onFailure(Call<List<UserModel>> call, Throwable t) {}
         });
     }
-    public void onUserClick(){
-        usersView.addOnItemTouchListener(
-                new RecyclerItemClickListener(this, usersView, new RecyclerItemClickListener.OnItemClickListener() {
-                    @Override
-                    public void onItemClick(View view, int position) {
-                        if(realm.where(UserModel.class).findAll().get(position).getRepositories().size() == 0){
-                        Retrofit retrofit = new Retrofit.Builder()
-                                .baseUrl("https://api.github.com/users/")
-                                .addConverterFactory(GsonConverterFactory.create())
-                                .build();
-
-                        APIService apiService = retrofit.create(APIService.class);
-                        Call<List<ReposModel>> call = apiService.getRepos(realm.where(UserModel.class).findAll().get(position).getLogin());
-                        call.enqueue(new Callback<List<ReposModel>>() {
-                            @Override
-                            public void onResponse(Call<List<ReposModel>> call, Response<List<ReposModel>> response) {
-                                realm.beginTransaction();
-                                RealmList<ReposModel> reposModels = new RealmList<>();
-                                UserModel userModel = realm.where(UserModel.class).findAll().get(position);
-                                for (ReposModel reposModel : response.body()) {
-                                    userModel.repositories.add(reposModel);
-                                }
-                                realm.copyToRealmOrUpdate(userModel);
-                                realm.commitTransaction();
-                                Bundle args = new Bundle();
-                                args.putString("login", realm.where(UserModel.class).findAll().get(position).getLogin());
-                                reposDialog.setArguments(args);
-                                reposDialog.show(getSupportFragmentManager(), "tag");
-                            }
-
-                            @Override
-                            public void onFailure(Call<List<ReposModel>> call, Throwable t) {
-                            }
-                        });
-
-                    }else{
-                            Bundle args = new Bundle();
-                            args.putString("login", realm.where(UserModel.class).findAll().get(position).getLogin());
-                            reposDialog.setArguments(args);
-                            reposDialog.show(getSupportFragmentManager(), "tag");
-                        }
+    public void getRepos(int position){
+        if(realm.where(UserModel.class).findAll().get(position).getRepositories().size() == 0){
+            Call<List<ReposModel>> call = apiService.getRepos(realm.where(UserModel.class).findAll().get(position).getLogin());
+            call.enqueue(new Callback<List<ReposModel>>() {
+                @Override
+                public void onResponse(Call<List<ReposModel>> call, Response<List<ReposModel>> response) {
+                    realm.beginTransaction();
+                    RealmList<ReposModel> reposModels = new RealmList<>();
+                    UserModel userModel = realm.where(UserModel.class).findAll().get(position);
+                    for (ReposModel reposModel : response.body()) {
+                        userModel.repositories.add(reposModel);
                     }
-                    @Override
-                    public void onLongItemClick(View view, int position) { }
-                })
-        );
+                    realm.copyToRealmOrUpdate(userModel);
+                    realm.commitTransaction();
+                    Bundle args = new Bundle();
+                    args.putString("login", realm.where(UserModel.class).findAll().get(position).getLogin());
+                    reposDialog.setArguments(args);
+                    reposDialog.show(getSupportFragmentManager(), "tag");
+                }
+
+                @Override
+                public void onFailure(Call<List<ReposModel>> call, Throwable t) {
+                }
+            });
+
+        }else{
+            Bundle args = new Bundle();
+            args.putString("login", realm.where(UserModel.class).findAll().get(position).getLogin());
+            reposDialog.setArguments(args);
+            reposDialog.show(getSupportFragmentManager(), "tag");
+        }
     }
     private void initRecyclerView() {
-        RecyclerViewAdapter adapter = new RecyclerViewAdapter(this, logins, avatar_urls, changes_count);
+        RecyclerViewAdapter adapter = new RecyclerViewAdapter(this, userModels);
         recyclerView.setAdapter(adapter);
         adapter.notifyDataSetChanged();
         recyclerView.addItemDecoration(new DividerItemDecoration(this,
